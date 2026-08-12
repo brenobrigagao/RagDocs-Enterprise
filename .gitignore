@@ -1,0 +1,24 @@
+# Ambiente
+.env
+.venv/
+__pycache__/
+*.pyc
+
+# Dados
+data/raw/*
+data/processed/*
+data/eval/*
+data/experiments/*
+!data/**/.gitkeep
+
+# Testes / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor
+.vscode/
+.idea/
+
+# Docker
+*.log
