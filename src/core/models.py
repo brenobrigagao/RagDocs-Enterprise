@@ -24,7 +24,7 @@ class IngestionStatus(str, enum.Enum):
     FAILED = "failed"
     SKIPPED_DUPLICATE = "skipped_duplicate"
 
-class Document(Base):
+class SourceDocument(Base):
     __tablename__ = "documents"
     __table_args__ = (
          UniqueConstraint("content_hash", name="uq_documents_content_hash"),
