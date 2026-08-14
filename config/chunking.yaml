@@ -1,0 +1,6 @@
+parent_chunk_size: 1200
+parent_chunk_overlap: 100
+
+child_chunk_size: 250
+child_chunk_overlap: 30
+

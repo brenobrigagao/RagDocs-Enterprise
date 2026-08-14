@@ -27,7 +27,7 @@ if st.button("Enviar para ingestão", disabled=not uploaded_files):
             response = httpx.post(
                 f"{API_BASE_URL}/ingest/upload",
                 files=files_payload,
-                timeout=120.0,  # ingestão de PDFs grandes pode demorar
+                timeout=120.0,  
             )
             response.raise_for_status()
             data = response.json()
