@@ -1,4 +1,4 @@
-.PHONY: up down logs ps db-shell
+.PHONY: up down logs ps db-shell dashboard
 
 up:
 	docker compose up -d
@@ -15,3 +15,8 @@ ps:
 db-shell:
 	docker compose exec postgres psql -U $${POSTGRES_USER} -d $${POSTGRES_DB}
 
+run:
+	uvicorn src.api.main:app --reload --reload-dir src --reload-dir config
+
+dashboard:
+	streamlit run dashboard/app.py

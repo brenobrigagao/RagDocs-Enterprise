@@ -23,7 +23,7 @@ def _save_upload_to_disk(upload: UploadFile) -> Path:
 
     return destination
 
-@router.post("/uplaod", response_model=IngestUploadResponse)
+@router.post("/upload", response_model=IngestUploadResponse)
 async def upload_documents(
     files: list[UploadFile] = File(...),
     db: Session = Depends(get_db)
@@ -45,10 +45,12 @@ async def upload_documents(
             )
         except Exception as exc:
             results.append(
-                file_name=upload.filename or "unknown",
-                status=IngestionStatus.FAILED.value,
-                document_id=None,
-                error_message=str(exc),
+                IngestedFileResult(
+                    file_name=upload.filename or "desconhecido",
+                    status=IngestionStatus.FAILED.value,
+                    document_id=None,
+                    error_message=str(exc),
+                )
             )
 
     completed = sum(1 for r in results if r.status == IngestionStatus.COMPLETED.value)
