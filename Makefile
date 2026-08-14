@@ -1,3 +1,4 @@
+include .env
 .PHONY: up down logs ps db-shell dashboard
 
 up:
@@ -13,7 +14,7 @@ ps:
 	docker composer ps
 
 db-shell:
-	docker compose exec postgres psql -U $${POSTGRES_USER} -d $${POSTGRES_DB}
+	docker compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB}
 
 run:
 	uvicorn src.api.main:app --reload --reload-dir src --reload-dir config

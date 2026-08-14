@@ -4,7 +4,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.core.database import Base, engine
-from src.core.models import Document
+from src.core.models import SourceDocument, Chunk
+
 
 def main() -> None:
     Base.metadata.create_all(bind=engine)
