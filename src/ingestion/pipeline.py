@@ -7,6 +7,7 @@ from src.core.models import SourceDocument, IngestionStatus ,SourceType
 from src.ingestion.loaders.factory import detect_source_type, load_file
 
 from src.chunking.persistence import persist_chunks
+from src.embeddings.generate import generate_embeddings_for_documents
 
 def compute_file_hash(path: Path) -> str:
     sha256 = hashlib.sha256()
@@ -53,6 +54,10 @@ def ingest_file(
             file_extension=path.suffix.lower(),
         )
         document.extra_metadata["chunks_created"] = len(chunks)
+
+        embeddings_count = generate_embeddings_for_documents(document.id, db)
+        document.extra_metadata["embeddings_generated"] = embeddings_count
+        
     except Exception as exc:
         document.status = IngestionStatus.FAILED
         document.error_message = str(exc)
