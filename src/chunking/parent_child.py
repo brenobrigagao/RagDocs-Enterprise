@@ -53,10 +53,10 @@ def _build_splitter(
 
 def chunk_document(
         langchain_docs: list[LCDocument],
-        file_extensions: str | None = None
+        file_extension: str | None = None
 ) -> list[dict]:
     config = get_chunking_config()
-    language = EXTENSION_TO_LANGUAGE.get(file_extensions) if file_extensions else None
+    language = EXTENSION_TO_LANGUAGE.get(file_extension) if file_extension else None
 
     parent_splitter = _build_splitter(
         config.parent_chunk_size, config.parent_chunk_overlap, language
@@ -65,34 +65,36 @@ def chunk_document(
         config.child_chunk_size, config.child_chunk_overlap, language
     )
 
-    full_text = "\n\n".join(doc.page_content for doc in langchain_docs)
-    base_metadata = dict(langchain_docs[0].metadata) if langchain_docs else {}
-
-    parent_texts = parent_splitter.split_text(full_text)
-
     result: list[dict] = []
-    for parent_index, parent_text in enumerate(parent_texts):
-        result.append(
-            {
-                "content": parent_text,
-                "chunk_level": "parent",
-                "token_count": count_tokens(parent_text),
-                "chunk_index": parent_index,
-                "parent_index": None,
-                "extra_metadata": base_metadata,
-            }
-        )
+    parent_global_index = 0
 
-        child_texts = child_splitter.split_text(parent_text)
-        for child_index, child_text in enumerate(child_texts):
+    for doc in langchain_docs:
+        doc_metadata = dict(doc.metadata)
+        parent_texts = parent_splitter.split_text(doc.page_content)
+
+        for parent_text in parent_texts:
             result.append(
                 {
-                    "content": child_text,
-                    "chunk_level": "child",
-                    "token_count": count_tokens(child_text),
-                    "chunk_index": child_index,
-                    "parent_index": parent_index,
-                    "extra_metadata": base_metadata,
+                    "content": parent_text,
+                    "chunk_level": "parent",
+                    "token_count": count_tokens(parent_text),
+                    "chunk_index": parent_global_index,
+                    "parent_index": None,
+                    "extra_metadata": doc_metadata,
                 }
             )
+            child_texts = child_splitter.split_text(parent_text)
+            for child_index, child_text in enumerate(child_texts):
+                result.append(
+                    {
+                        "content": child_text,
+                        "chunk_level": "child",
+                        "token_count": count_tokens(child_text),
+                        "chunk_index": child_index,
+                        "parent_index": parent_global_index,
+                        "extra_metadata": doc_metadata,
+                    }
+                )
+            parent_global_index += 1
+            
     return result

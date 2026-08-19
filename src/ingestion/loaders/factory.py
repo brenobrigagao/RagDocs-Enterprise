@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
-from langchain_core.documents import Document
+from langchain_core.documents import Document as LCDocument
 
 CODE_EXTENSIONS = {
     ".py", ".js", ".ts", ".java", ".go", ".rb", ".rs",
@@ -23,7 +23,7 @@ def detect_source_type(path: Path) -> str:
         return "code"
     raise UnsupportedFileTypeError(f"Unsupported extension: {ext}")
 
-def load_file(file_path: str | Path) -> list[Document]:
+def load_file(file_path: str | Path) -> list[LCDocument]:
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
