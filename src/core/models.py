@@ -6,6 +6,7 @@ from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, Unique
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 
 from src.core.database import Base
 
@@ -60,26 +61,23 @@ class Chunk(Base):
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
-
     document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("documents.id", ondelete="CASCADE"),
         index=True,
     )
-
     parent_chunk_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("chunks.id", ondelete="CASCADE"),
         nullable=True,
         index=True,
     )
-
     chunk_level: Mapped[ChunkLevel] = mapped_column(Enum(ChunkLevel))
     content: Mapped[str] = mapped_column(Text)
     token_count: Mapped[int] = mapped_column(Integer)
-
     chunk_index: Mapped[int] = mapped_column(Integer)
-
     extra_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
+
+    embedding = Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -1,0 +1,3 @@
+model_name: BAAI/mge-m3
+dimension: 1024
+batch_size: 16
