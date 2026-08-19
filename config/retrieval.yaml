@@ -1,0 +1,5 @@
+vector_top_k: 20
+bm25_top_k: 20
+fusion_weights:
+  vector: 0.5
+  bm25: 0.5
