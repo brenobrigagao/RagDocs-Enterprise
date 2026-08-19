@@ -78,6 +78,6 @@ class Chunk(Base):
     chunk_index: Mapped[int] = mapped_column(Integer)
     extra_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
 
-    embedding = Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
