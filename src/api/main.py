@@ -4,12 +4,15 @@ from fastapi import FastAPI
 
 from src.api.routes import ingestion
 from src.embeddings.service import get_embedding_model
+from src.retrieval.reranker import get_reranker_model
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("Loading embeddings model...")
     get_embedding_model()
-    print("Model loaded. API ready!")
+    print("Loading reranker model...")
+    get_reranker_model()
+    print("Models loaded. API ready!")
 
     yield
 

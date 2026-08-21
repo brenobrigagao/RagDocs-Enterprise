@@ -4,8 +4,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.core.database import SessionLocal
-from src.retrieval.hybrid import build_hybrid_retriever
-
+from src.retrieval.hybrid import build_full_retriever
 
 def main() -> None:
     if len(sys.argv) != 2:
@@ -15,7 +14,7 @@ def main() -> None:
     query = sys.argv[1]
     db = SessionLocal()
     try:
-        retriever = build_hybrid_retriever(db)
+        retriever = build_full_retriever(db)
         results = retriever.invoke(query)
         print(f"{len(results)} resultado(s) para: {query!r}\n")
         for i, doc in enumerate(results):
