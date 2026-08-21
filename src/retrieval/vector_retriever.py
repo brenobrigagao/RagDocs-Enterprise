@@ -5,12 +5,14 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from src.embeddings.service import embed_query
+from src.retrieval.filters import RetrievalFilters
 
 class PGVectorChildRetriever(BaseRetriever):
     model_config = {"arbitrary_types_allowed": True}
 
     db: Session
     top_k: int = 20
+    filters: RetrievalFilters | None = None
 
     def _get_relevant_documents(
             self, query: str, *, run_manager: CallbackManagerForRetrieverRun
@@ -18,18 +20,24 @@ class PGVectorChildRetriever(BaseRetriever):
         query_vector = embed_query(query)
         vector_literal = "[" + ",".join(str(v) for v in query_vector) + "]"
 
+        filter_sql, filter_params = (
+            self.filters.to_sql_conditions() if self.filters else ("", {})
+        )
+
         stmt = text(
              """
-            SELECT id, content, extra_metadata, document_id, parent_chunk_id,
-                   1 - (embedding <=> :query_vector::vector) AS score
-            FROM chunks
-            WHERE chunk_level = 'CHILD' AND embedding IS NOT NULL
-            ORDER BY embedding <=> :query_vector::vector
+            SELECT c.id, c.content, c.extra_metadata, c.document_id, c.parent_chunk_id,
+                   1 - (c.embedding <=> :query_vector::vector) AS score
+            FROM chunks c
+            JOIN documents d ON d.id = c.document_id
+            WHERE c.chunk_level = 'CHILD' AND c.embedding IS NOT NULL
+            {filter_sql}
+            ORDER BY c.embedding <=> :query_vector::vector
             LIMIT :top_k
             """
         )
         rows = self.db.execute(
-            stmt, {"query_vector": vector_literal, "top_k": self.top_k}
+            stmt, {"query_vector": vector_literal, "top_k": self.top_k, **filter_params}
         ).mappings().all()
 
         return [
