@@ -51,3 +51,4 @@ def assembly_context(retrieved_docs: list[LCDocument], db: session) -> list[Cont
             )
         )
     return sources
+
