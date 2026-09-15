@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.api.routes import ingestion, documents
+from src.api.routes import ingestion, documents, query
 from src.embeddings.service import get_embedding_model
 from src.retrieval.reranker import get_reranker_model
 
@@ -25,6 +25,7 @@ app = FastAPI(
 
 app.include_router(ingestion.router)
 app.include_router(documents.router)
+app.include_router(query.router)
 
 @app.get("/health")
 def health_check() -> dict[str,str]:
