@@ -25,15 +25,17 @@ def detect_source_type(path: Path) -> str:
 
 def load_file(file_path: str | Path) -> list[LCDocument]:
     path = Path(file_path)
+
     if not path.exists():
         raise FileNotFoundError(f"File not found: {path}")
-
+    if not path.is_file():
+        raise ValueError(f"The specified path is not a file: {path}")
     source_type = detect_source_type(path)
 
     if source_type == "pdf":
         loader = PyPDFLoader(str(path))
     else:
-        loader = TextLoader(str(path), encoding="utf-8")
+        loader = TextLoader(str(path), autodetect_encoding=True)
 
     documents = loader.load()
 
