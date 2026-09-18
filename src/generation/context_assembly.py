@@ -14,7 +14,7 @@ class ContextSource:
     content: str
     page: int | None = None
 
-def assembly_context(retrieved_docs: list[LCDocument], db: session) -> list[ContextSource]:
+def assemble_context(retrieved_docs: list[LCDocument], db: session) -> list[ContextSource]:
     parent_ids: list[UUID] = []
     seen: set[str] = set()
 

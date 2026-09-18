@@ -1,0 +1,36 @@
+# Ambiente virtual -- a imagem instala as dependências do zero via
+# pyproject.toml, não precisa (e não deve) copiar o venv do host
+.venv/
+venv/
+
+# Git
+.git/
+.gitignore
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Dados (não devem ir dentro da imagem -- usamos volume para isso)
+data/raw/*
+data/processed/*
+data/eval/*
+data/experiments/*
+!data/**/.gitkeep
+
+# Testes / cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Editor
+.vscode/
+.idea/
+
+# Documentação/arquivos auxiliares que não afetam o build
+README.md
+*.md
+
+# Outputs locais que você possa ter gerado (zips, etc.)
+*.zip

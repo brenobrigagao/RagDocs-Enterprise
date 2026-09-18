@@ -2,8 +2,8 @@ from functools import lru_cache
 from pathlib import Path
 
 import yaml
-from langchain_core.retrievers import ContextualCompressionRetriever
-from langchain_community.document_compressors import CrossEncoderReranker
+from langchain_classic.retrievers import ContextualCompressionRetriever
+from langchain_classic.retrievers.document_compressors import CrossEncoderReranker
 from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_core.retrievers import BaseRetriever
 from pydantic import BaseModel

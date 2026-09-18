@@ -1,12 +1,11 @@
-from langchain_core.retrievers import EnsembleRetriever
-from langchain_core.retrievers import ContextualCompressionRetriever
+from langchain_classic.retrievers import ContextualCompressionRetriever, EnsembleRetriever
 from sqlalchemy.orm import Session
 
 from src.retrieval.config import get_retrieval_config
-from src.retrieval.reranker import build_reranking_retriever
-from src.retrieval.fulltext_retriever import PgFullTextChildRetriever
-from src.retrieval.vector_retriever import PgVectorChildRetriever
 from src.retrieval.filters import RetrievalFilters
+from src.retrieval.fulltext_retriever import PgFullTextRetriever
+from src.retrieval.reranker import build_reranking_retriever
+from src.retrieval.vector_retriever import PgVectorChildRetriever
 
 def build_hybrid_retriever(db: Session, filters: RetrievalFilters | None = None) -> EnsembleRetriever:
     config = get_retrieval_config()
@@ -14,7 +13,7 @@ def build_hybrid_retriever(db: Session, filters: RetrievalFilters | None = None)
     vector_retriever = PgVectorChildRetriever(
         db=db, top_k=config.vector_top_k, filters=filters
     )
-    fulltext_retriever = PgFullTextChildRetriever(
+    fulltext_retriever = PgFullTextRetriever(
         db=db, top_k=config.bm25_top_k, filters=filters
     )
 

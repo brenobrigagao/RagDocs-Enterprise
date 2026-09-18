@@ -57,10 +57,10 @@ class ChunkLevel(str, enum.Enum):
 
 class Chunk(Base):
     __tablename__ = "chunks"
-    __table_args__=(
-        Index("ix_chunks_content_tsv", "content_tsv", postgresql_using="gin")
-    )
-
+    __table_args__ = (
+    Index("ix_chunks_content_tsv", "content_tsv", postgresql_using="gin"),
+)
+    
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
@@ -82,7 +82,7 @@ class Chunk(Base):
     extra_metadata: Mapped[dict] = mapped_column(JSONB, default=dict)
 
     embedding: Mapped[list[float] | None] = mapped_column(Vector(1024), nullable=True)
-    content_tsv = Mapped[str] = mapped_column(
+    content_tsv: Mapped[str] = mapped_column(
         TSVECTOR,
         Computed("to_tsvector('portuguese', content)", persisted=True),
     )

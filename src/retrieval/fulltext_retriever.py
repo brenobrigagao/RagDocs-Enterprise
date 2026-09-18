@@ -11,7 +11,7 @@ class PgFullTextRetriever(BaseRetriever):
 
     db: Session
     top_k: int = 20
-    filters = RetrievalFilters | None = None
+    filters: RetrievalFilters | None = None
 
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
@@ -22,7 +22,7 @@ class PgFullTextRetriever(BaseRetriever):
         )
 
         stmt = text(
-            """
+            f"""
             SELECT c.id, c.content, c.extra_metadata, c.document_id, c.parent_chunk_id,
                    ts_rank_cd(c.content_tsv, websearch_to_tsquery('portuguese', :query)) AS score
             FROM chunks c

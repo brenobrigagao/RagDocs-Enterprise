@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from src.embeddings.service import embed_query
 from src.retrieval.filters import RetrievalFilters
 
-class PGVectorChildRetriever(BaseRetriever):
+class PgVectorChildRetriever(BaseRetriever):
     model_config = {"arbitrary_types_allowed": True}
 
     db: Session
@@ -25,7 +25,7 @@ class PGVectorChildRetriever(BaseRetriever):
         )
 
         stmt = text(
-             """
+            f"""
             SELECT c.id, c.content, c.extra_metadata, c.document_id, c.parent_chunk_id,
                    1 - (c.embedding <=> :query_vector::vector) AS score
             FROM chunks c
