@@ -1,10 +1,12 @@
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document as LCDocument
 from langchain_core.retrievers import BaseRetriever
-from sqlalchemy import text
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.core.models import Chunk, ChunkLevel, SourceDocument
 from src.retrieval.filters import RetrievalFilters
+
 
 class PgFullTextRetriever(BaseRetriever):
     model_config = {"arbitrary_types_allowed": True}
@@ -16,28 +18,32 @@ class PgFullTextRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun
     ) -> list[LCDocument]:
+        ts_query = func.websearch_to_tsquery("portuguese", query)
+        score_expr = func.ts_rank_cd(Chunk.content_tsv, ts_query)
 
-        filter_sql, filter_params = (
-            self.filters.to_sql_conditions() if self.filters else ("", {})
+        stmt = (
+            select(
+                Chunk.id,
+                Chunk.content,
+                Chunk.extra_metadata,
+                Chunk.document_id,
+                Chunk.parent_chunk_id,
+                score_expr.label("score"),
+            )
+            .join(SourceDocument, Chunk.document_id == SourceDocument.id)
+            .where(
+                Chunk.chunk_level == ChunkLevel.CHILD,
+                Chunk.content_tsv.op("@@")(ts_query),
+            )
         )
 
-        stmt = text(
-            f"""
-            SELECT c.id, c.content, c.extra_metadata, c.document_id, c.parent_chunk_id,
-                   ts_rank_cd(c.content_tsv, websearch_to_tsquery('portuguese', :query)) AS score
-            FROM chunks c
-            JOIN documents d ON d.id = c.document_id
-            WHERE c.chunk_level = 'CHILD'
-              AND c.content_tsv @@ websearch_to_tsquery('portuguese', :query)
-            {filter_sql}
-            ORDER BY score DESC
-            LIMIT :top_k
-            """
-        )
-        
-        rows = self.db.execute(
-            stmt, {"query": query, "top_k": self.top_k, **filter_params}
-        ).mappings().all()
+        if self.filters:
+            if conditions := self.filters.to_sqlalchemy_conditions():
+                stmt = stmt.where(*conditions)
+
+        stmt = stmt.order_by(score_expr.desc()).limit(self.top_k)
+
+        rows = self.db.execute(stmt).mappings().all()
 
         return [
             LCDocument(
@@ -45,7 +51,9 @@ class PgFullTextRetriever(BaseRetriever):
                 metadata={
                     "chunk_id": str(row["id"]),
                     "document_id": str(row["document_id"]),
-                    "parent_chunk_id": str(row["parent_chunk_id"]) if row["parent_chunk_id"] else None,
+                    "parent_chunk_id": str(row["parent_chunk_id"])
+                    if row["parent_chunk_id"]
+                    else None,
                     "score": float(row["score"]),
                     "retrieval_source": "fulltext",
                     **row["extra_metadata"],
