@@ -63,18 +63,24 @@ def _call_with_retry(
 def generate_answer(question: str, sources: list) -> tuple[str, str]:
     context = format_context(sources)
     user_prompt = USER_PROMPT_TEMPLATE.format(context=context, question=question)
+    config = get_generation_config()
 
     try:
         llm = _build_llm(settings.groq_model_primary)
-        answer = _call_with_retry(llm, SYSTEM_PROMPT, user_prompt)
+        answer = _call_with_retry(
+            llm, SYSTEM_PROMPT, user_prompt, max_retries=config.max_retries
+        )
         return answer, settings.groq_model_primary
-    except RateLimitError:
+    except TRANSIENT_ERRROS as exc:
         logger.warning(
             "Rate limit exhausted for the primary model (%s) even after retries; "
             "using fallback (%s).",
             settings.groq_model_primary,
+            exc,
             settings.groq_model_fallback,
         )
-        llm = _build_llm(settings.groq_model_fallback)
-        answer = _call_with_retry(llm, SYSTEM_PROMPT, user_prompt)
+        llm_fallback = _build_llm(settings.groq_model_fallback)
+        answer = _call_with_retry(
+            llm, SYSTEM_PROMPT, user_prompt, max_retries=config.max_retries
+        )
         return answer, settings.groq_model_fallback
