@@ -1,8 +1,20 @@
 import logging
+from typing import Any
 
-from groq import RateLimitError
+from groq import (
+    APIConnectionError,
+    APITimeoutError,
+    InternalServerError,
+    RateLimitError,
+)
 from langchain_groq import ChatGroq
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from config.settings import settings
 from src.generation.config import get_generation_config
@@ -14,6 +26,13 @@ from src.generation.prompts.v1_qa_prompt import (
 
 logger = logging.getLogger(__name__)
 
+TRANSIENT_ERRROS = (
+    RateLimitError,
+    APIConnectionError,
+    APITimeoutError,
+    InternalServerError,
+)
+
 def _build_llm(model_name: str) -> ChatGroq:
     config = get_generation_config()
     return ChatGroq(
@@ -23,20 +42,21 @@ def _build_llm(model_name: str) -> ChatGroq:
         max_tokens=config.max_tokens,
     )
 
-def _call_with_retry(llm: ChatGroq, system_prompt: str, user_prompt: str) -> str:
-    config = get_generation_config()
-
+def _call_with_retry(
+        llm: ChatGroq, system_prompt: str, user_prompt: str, max_retries: int
+) -> str:
     @retry(
-        retry=retry_if_exception_type(RateLimitError),
+        retry=retry_if_exception_type(TRANSIENT_ERRROS),
         wait=wait_exponential(multiplier=1, min=2, max=30),
-        stop=stop_after_attempt(config.max_retries),
+        stop=stop_after_attempt(max_retries),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
         reraise=True,
     )
     def _invoke() -> str:
         response = llm.invoke(
             [("system", system_prompt), ("human", user_prompt)]
         )
-        return response.content
+        return str(response.content)
 
     return _invoke()
 
