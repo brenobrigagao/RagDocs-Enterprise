@@ -8,6 +8,7 @@ from src.ingestion.loaders.factory import detect_source_type, load_file
 
 from src.chunking.persistence import persist_chunks
 from src.embeddings.generate import generate_embeddings_for_documents
+import uuid
 
 def compute_file_hash(path: Path) -> str:
     sha256 = hashlib.sha256()
@@ -17,9 +18,10 @@ def compute_file_hash(path: Path) -> str:
     return sha256.hexdigest()
 
 def ingest_file(
-        file_path: str | Path,
-        db: Session,
-        uploaded_by: str | None = None,
+    file_path: str | Path,
+    db: Session,
+    document_id: uuid.UUID | None = None,
+    uploaded_by: str | None = None,
 ) -> SourceDocument:
     path = Path(file_path)
     content_hash = compute_file_hash(path)
@@ -28,25 +30,31 @@ def ingest_file(
     if existing is not None:
         return existing
 
-    document = SourceDocument(
-        content_hash=content_hash,
-        source_type=SourceType(detect_source_type(path)),
-        source_path=str(path.resolve()),
-        file_name=path.name,
-        uploaded_by=uploaded_by,
-        status=IngestionStatus.PROCESSING,
-    )
-    db.add(document)
-    db.flush()
+    if document_id:
+        document = db.get(SourceDocument, document_id)
+        if not document:
+            raise ValueError(f"SourceDocument with ID {document_id} was not found.")
+        document.content_hash = content_hash
+    else:
+        document = SourceDocument(
+            content_hash=content_hash,
+            source_type=SourceType(detect_source_type(path)),
+            source_path=str(path.resolve()),
+            file_name=path.name,
+            uploaded_by=uploaded_by,
+            status=IngestionStatus.PROCESSING,
+        )
+        db.add(document)
+        db.flush()
 
     try:
+        document.status = IngestionStatus.PROCESSING
+        
         langchain_docs = load_file(path)
         document.extra_metadata = {
             "num_pages_or_parts": len(langchain_docs),
         }
-        document.status = IngestionStatus.COMPLETED
 
-        db.flush()
         chunks = persist_chunks(
             document_id=document.id,
             langchain_docs=langchain_docs,
@@ -57,7 +65,9 @@ def ingest_file(
 
         embeddings_count = generate_embeddings_for_documents(document.id, db)
         document.extra_metadata["embeddings_generated"] = embeddings_count
-        
+
+        document.status = IngestionStatus.COMPLETED
+
     except Exception as exc:
         document.status = IngestionStatus.FAILED
         document.error_message = str(exc)
