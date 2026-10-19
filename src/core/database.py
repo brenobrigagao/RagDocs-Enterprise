@@ -28,6 +28,7 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     except Exception:
         db.rollback()
+        raise
     finally:
         db.close()
 

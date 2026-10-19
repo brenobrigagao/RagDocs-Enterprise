@@ -1,15 +1,15 @@
 import uuid
 from pathlib import Path
-from typing import Callable
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, UploadFile, status
 from sqlalchemy.orm import Session
 
 from src.api.deps import get_db
 from src.api.schemas.ingestion import IngestedFileResult, IngestUploadResponse
-from src.core.database import SessionLocal  
-from src.core.models import IngestionStatus, SourceDocument
-from src.ingestion.pipeline import ingest_file
+from src.core.database import SessionLocal
+from src.core.models import IngestionStatus, SourceDocument, SourceType
+from src.ingestion.loaders.factory import detect_source_type
+from src.ingestion.pipeline import compute_file_hash, ingest_file
 
 router = APIRouter(prefix="/ingest", tags=["ingestion"])
 
@@ -28,10 +28,16 @@ async def _save_upload_to_disk_async(upload: UploadFile) -> Path:
     return destination
 
 def _run_ingestion_task(document_id: uuid.UUID, file_path: Path, uploaded_by: str) -> None:
-    with SessionLocal as db:
+    with SessionLocal() as db:
         try:
-            ingest_file(file_path=file_path, db=db, document_id=document_id, uploaded_by=uploaded_by)
+            ingest_file(
+                file_path=file_path,
+                db=db,
+                document_id=document_id,
+                uploaded_by=uploaded_by,
+            )
         except Exception as exc:
+            db.rollback()
             doc = db.get(SourceDocument, document_id)
             if doc:
                 doc.status = IngestionStatus.FAILED
@@ -39,14 +45,14 @@ def _run_ingestion_task(document_id: uuid.UUID, file_path: Path, uploaded_by: st
                 db.commit()
 
 @router.post(
-        "/upload", 
-        response_model=IngestUploadResponse,
-        status_code=status.HTTP_202_ACCEPTED
+    "/upload",
+    response_model=IngestUploadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
 )
 async def upload_documents(
     background_tasks: BackgroundTasks,
     files: list[UploadFile] = File(...),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ) -> IngestUploadResponse:
     results: list[IngestedFileResult] = []
 
@@ -54,8 +60,30 @@ async def upload_documents(
         safe_filename = Path(upload.filename or "desconhecido").name
         try:
             saved_path = await _save_upload_to_disk_async(upload)
+
+            content_hash = compute_file_hash(saved_path)
+            source_type = SourceType(detect_source_type(saved_path))
+
+            existing = (
+                db.query(SourceDocument)
+                .filter_by(content_hash=content_hash)
+                .first()
+            )
+            if existing:
+                results.append(
+                    IngestedFileResult(
+                        file_name=safe_filename,
+                        status=existing.status.value,
+                        document_id=existing.id,
+                        error_message=None,
+                    )
+                )
+                continue
+
             document = SourceDocument(
                 id=uuid.uuid4(),
+                content_hash=content_hash,
+                source_type=source_type,
                 file_name=safe_filename,
                 source_path=str(saved_path.resolve()),
                 status=IngestionStatus.PROCESSING,
@@ -90,12 +118,16 @@ async def upload_documents(
                 )
             )
 
-    processing_count = sum(1 for r in results if r.status == IngestionStatus.PROCESSING.value)
-    failed_count = sum(1 for r in results if r.status == IngestionStatus.FAILED.value)
+    processing_count = sum(
+        1 for r in results if r.status == IngestionStatus.PROCESSING.value
+    )
+    failed_count = sum(
+        1 for r in results if r.status == IngestionStatus.FAILED.value
+    )
 
     return IngestUploadResponse(
         total=len(results),
-        completed=processing_count,  
+        completed=processing_count,
         failed=failed_count,
         results=results,
     )

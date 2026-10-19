@@ -19,7 +19,7 @@ ps:
 ## Abre um shell psql dentro do container do Postgres
 db-shell:
 	docker compose exec postgres psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
-
+	
 ## Sobe a API em modo desenvolvimento (fora do Docker, local)
 run:
 	uvicorn src.api.main:app --reload --reload-dir src --reload-dir config

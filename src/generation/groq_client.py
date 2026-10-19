@@ -1,6 +1,4 @@
 import logging
-from typing import Any
-
 from groq import (
     APIConnectionError,
     APITimeoutError,
@@ -8,6 +6,7 @@ from groq import (
     RateLimitError,
 )
 from langchain_groq import ChatGroq
+from groq import NotFoundError
 from tenacity import (
     before_sleep_log,
     retry,
@@ -26,12 +25,13 @@ from src.generation.prompts.v1_qa_prompt import (
 
 logger = logging.getLogger(__name__)
 
-TRANSIENT_ERRROS = (
+TRANSIENT_ERRORS = (
     RateLimitError,
     APIConnectionError,
     APITimeoutError,
     InternalServerError,
 )
+FALLBACK_ERRORS = TRANSIENT_ERRORS + (NotFoundError,)
 
 def _build_llm(model_name: str) -> ChatGroq:
     config = get_generation_config()
@@ -46,7 +46,7 @@ def _call_with_retry(
         llm: ChatGroq, system_prompt: str, user_prompt: str, max_retries: int
 ) -> str:
     @retry(
-        retry=retry_if_exception_type(TRANSIENT_ERRROS),
+        retry=retry_if_exception_type(TRANSIENT_ERRORS),
         wait=wait_exponential(multiplier=1, min=2, max=30),
         stop=stop_after_attempt(max_retries),
         before_sleep=before_sleep_log(logger, logging.WARNING),
@@ -71,16 +71,15 @@ def generate_answer(question: str, sources: list) -> tuple[str, str]:
             llm, SYSTEM_PROMPT, user_prompt, max_retries=config.max_retries
         )
         return answer, settings.groq_model_primary
-    except TRANSIENT_ERRROS as exc:
+    except FALLBACK_ERRORS as exc:
         logger.warning(
-            "Rate limit exhausted for the primary model (%s) even after retries; "
-            "using fallback (%s).",
+            "Primary model (%s) failed after retries (%s); using fallback (%s).",
             settings.groq_model_primary,
             exc,
             settings.groq_model_fallback,
         )
         llm_fallback = _build_llm(settings.groq_model_fallback)
         answer = _call_with_retry(
-            llm, SYSTEM_PROMPT, user_prompt, max_retries=config.max_retries
+            llm_fallback, SYSTEM_PROMPT, user_prompt, max_retries=config.max_retries
         )
         return answer, settings.groq_model_fallback

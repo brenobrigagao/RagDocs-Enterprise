@@ -1,6 +1,6 @@
 import hashlib
 from pathlib import Path
-
+import logging
 from sqlalchemy.orm import Session
 
 from src.core.models import SourceDocument, IngestionStatus ,SourceType
@@ -9,6 +9,8 @@ from src.ingestion.loaders.factory import detect_source_type, load_file
 from src.chunking.persistence import persist_chunks
 from src.embeddings.generate import generate_embeddings_for_documents
 import uuid
+
+logger = logging.getLogger(__name__)
 
 def compute_file_hash(path: Path) -> str:
     sha256 = hashlib.sha256()
@@ -26,7 +28,11 @@ def ingest_file(
     path = Path(file_path)
     content_hash = compute_file_hash(path)
 
-    existing = db.query(SourceDocument).filter_by(content_hash=content_hash).first()
+    query = db.query(SourceDocument).filter(SourceDocument.content_hash == content_hash)
+    if document_id:
+        query = query.filter(SourceDocument.id != document_id)
+
+    existing = query.first()
     if existing is not None:
         return existing
 
@@ -35,6 +41,7 @@ def ingest_file(
         if not document:
             raise ValueError(f"SourceDocument with ID {document_id} was not found.")
         document.content_hash = content_hash
+        document.source_type = SourceType(detect_source_type(path))
     else:
         document = SourceDocument(
             content_hash=content_hash,
@@ -61,17 +68,25 @@ def ingest_file(
             db=db,
             file_extension=path.suffix.lower(),
         )
-        document.extra_metadata["chunks_created"] = len(chunks)
+        document.extra_metadata = {
+            **document.extra_metadata, 
+            "chunks_created": len(chunks)}
 
         embeddings_count = generate_embeddings_for_documents(document.id, db)
-        document.extra_metadata["embeddings_generated"] = embeddings_count
+        document.extra_metadata = document.extra_metadata = {
+            **document.extra_metadata, 
+            "embeddings_generated": embeddings_count}
 
         document.status = IngestionStatus.COMPLETED
+        db.commit()
 
     except Exception as exc:
+        logger.exception("Error ingesting document %s", document.id)
+        db.rollback()
+        document = db.get(SourceDocument, document.id)
         document.status = IngestionStatus.FAILED
         document.error_message = str(exc)
+        db.commit()
 
-    db.commit()
     db.refresh(document)
     return document

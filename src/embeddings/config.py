@@ -18,7 +18,7 @@ class EmbeddingConfig(BaseModel):
     dimension: int = Field(..., gt=0, description="Embedding vector dimension")
     batch_size: int = Field(64, gt=0, description="Batch size for sending to the model")
 
-@lru_cache(max_size=1)
+@lru_cache(maxsize=1)
 def get_embedding_config(path: Path = CONFIG_PATH) -> EmbeddingConfig:
     if not path.exists():
         raise FileNotFoundError(f"Configuration file not found: {path}")

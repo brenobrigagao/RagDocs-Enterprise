@@ -53,7 +53,7 @@ def ask_question(request: QueryRequest, db: Session = Depends(get_db)) -> QueryR
             ],
         )
     except Exception as exc:
-        logger.info("Error generating response for the question '%s': %s", request.question, exc, exc_info=True)
+        logger.exception("Error generating response for the question '%s': %s", request.question, exc, exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred while processing your question. Please try again later."
